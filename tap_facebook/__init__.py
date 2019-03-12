@@ -542,6 +542,15 @@ def transform_date_hook(data, typ, schema):
         return transformed
     return data
 
+
+def select_in_schema(schema, fields):
+    ''' Add selection to the schema message '''
+    result = schema.copy()
+    for k,v in result['properties'].items():
+        v['selected'] = k in fields
+    return result
+
+
 def do_sync(account, catalog, state):
     streams_to_sync = get_streams_to_sync(account, catalog, state)
     refs = load_shared_schema_refs()
@@ -549,7 +558,7 @@ def do_sync(account, catalog, state):
         LOGGER.info('Syncing %s, fields %s', stream.name, stream.fields())
         schema = singer.resolve_schema_references(load_schema(stream), refs)
         bookmark_key = BOOKMARK_KEYS.get(stream.name)
-        singer.write_schema(stream.name, schema, stream.key_properties, bookmark_key, stream.stream_alias)
+        singer.write_schema(stream.name, select_in_schema(schema, stream.fields()), stream.key_properties, bookmark_key, stream.stream_alias)
         with Transformer(pre_hook=transform_date_hook) as transformer:
             with metrics.record_counter(stream.name) as counter:
                 for message in stream:
