@@ -49,7 +49,9 @@ STREAMS = [
     'ads_insights_age_and_gender',
     'ads_insights_country',
     'ads_insights_platform_and_device',
-    'ads_insights_region']
+    'ads_insights_region',
+    'ads_insights_dma',
+]
 
 REQUIRED_CONFIG_KEYS = ['start_date', 'account_id', 'access_token']
 UPDATED_TIME_KEY = 'updated_time'
@@ -63,7 +65,8 @@ BOOKMARK_KEYS = {
     'ads_insights_age_and_gender': START_DATE_KEY,
     'ads_insights_country': START_DATE_KEY,
     'ads_insights_platform_and_device': START_DATE_KEY,
-    'ads_insights_region': START_DATE_KEY
+    'ads_insights_region': START_DATE_KEY,
+    'ads_insights_dma': START_DATE_KEY,
 }
 
 LOGGER = singer.get_logger()
@@ -103,8 +106,22 @@ def iter_delivery_info_filter(stream_type):
         yield filt
 
 def retry_pattern(backoff_type, exception, **wait_gen_kwargs):
+    # HACK: Workaround added due to bug with Facebook prematurely deprecating 'relevance_score'
+    # Issue being tracked here: https://developers.facebook.com/support/bugs/2489592517771422
+    def is_relevance_score(exception):
+        if getattr(exception, "body", None):
+            return exception.body().get("error", {}).get("message") == '(#100) relevance_score is not valid for fields param. please check https://developers.facebook.com/docs/marketing-api/reference/ads-insights/ for all valid values'
+        else:
+            return False
+
     def log_retry_attempt(details):
         _, exception, _ = sys.exc_info()
+        if is_relevance_score(exception):
+            raise Exception("Due to a bug with Facebook prematurely deprecating 'relevance_score' that is "
+                            "not affecting all tap-facebook users in the same way, you need to "
+                            "deselect `relevance_score` from your Insights export. For further "
+                            "information, please see this Facebook bug report thread: "
+                            "https://developers.facebook.com/support/bugs/2489592517771422") from exception
         LOGGER.info(exception)
         LOGGER.info('Caught retryable error after %s tries. Waiting %s more seconds then retrying...',
                     details["tries"],
@@ -112,7 +129,7 @@ def retry_pattern(backoff_type, exception, **wait_gen_kwargs):
 
     def should_retry_api_error(exception):
         if isinstance(exception, FacebookRequestError):
-            return exception.api_transient_error() or exception.api_error_subcode() == 99
+            return exception.api_transient_error() or exception.api_error_subcode() == 99 or is_relevance_score(exception)
         elif isinstance(exception, InsightsJobTimeout):
             return True
         return False
@@ -391,7 +408,7 @@ class AdsInsights(Stream):
     bookmark_key = START_DATE_KEY
 
     invalid_insights_fields = ['impression_device', 'publisher_platform', 'platform_position',
-                               'age', 'gender', 'country', 'placement', 'region']
+                               'age', 'gender', 'country', 'placement', 'region', 'dma']
 
     # pylint: disable=no-member,unsubscriptable-object,attribute-defined-outside-init
     def __attrs_post_init__(self):
@@ -504,7 +521,9 @@ INSIGHTS_BREAKDOWNS_OPTIONS = {
                                          "primary-keys": ['publisher_platform',
                                                           'platform_position', 'impression_device']},
     'ads_insights_region': {'breakdowns': ['region'],
-                            'primary-keys': ['region']}
+                            'primary-keys': ['region']},
+    'ads_insights_dma': {"breakdowns": ['dma'],
+                         "primary-keys": ['dma']},
 }
 
 
