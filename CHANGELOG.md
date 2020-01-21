@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.8.2
+  * Add `video_play_curve_actions` to ads_insights schemas [#80](https://github.com/singer-io/tap-facebook/pull/80)
+
+## 1.8.1
+  * Modifies the sync method of AdCreatives to use the FB Batch endpoint [#73](https://github.com/singer-io/tap-facebook/pull/73)
+
+## 1.8.0
+  * Add the ability to override `RESULT_RETURN_LIMIT` from the config [#71](https://github.com/singer-io/tap-facebook/pull/71)
+  * Add date-windowing for the `adcreative` stream [#71](https://github.com/singer-io/tap-facebook/pull/71)
+
+## 1.7.1
+  * Bump `facebook_business` library to 4.0.5 [#68](https://github.com/singer-io/tap-facebook/pull/68)
+  * Remove deprecated `video_p95_watched_actions` field
+  * Change calls to `remote_read` to use `api_get` per deprecation [#69](https://github.com/singer-io/tap-facebook/pull/69)
+
+## 1.7.0
+  * Replaced `annotated_schema` with Singer `metadata`
+    * Fixed unit tests to also use `metadata`
+  * Added integration tests to CircleCI
+
 ## 1.6.0
   * Add DMA breakdown
 
